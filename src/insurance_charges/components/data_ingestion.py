@@ -1,13 +1,14 @@
+# src/insurance_charges/components/data_ingestion.py
 import os
 import sys
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
-from insurance_charges.entity.config_entity import DataIngestionConfig
-from insurance_charges.entity.artifact_entity import DataIngestionArtifact
-from insurance_charges.exception import InsuranceException
-from insurance_charges.logger import logging
-from insurance_charges.data_access.insurance_data import InsuranceData
+from src.insurance_charges.entity.config_entity import DataIngestionConfig
+from src.insurance_charges.entity.artifact_entity import DataIngestionArtifact
+from src.insurance_charges.exception import InsuranceException
+from src.insurance_charges.logger import logging
+from src.insurance_charges.data_access.insurance_data import InsuranceData
 
 class DataIngestion:
     def __init__(self, data_ingestion_config: DataIngestionConfig = DataIngestionConfig()):
@@ -28,8 +29,8 @@ class DataIngestion:
             logging.info(f"Exporting data from PostgreSQL")
             insurance_data = InsuranceData()
             dataframe = insurance_data.export_table_as_dataframe(
-                table_name=self.data_ingestion_config.table_name,  # CHANGED: Use table_name instead of collection_name
-                schema=self.data_ingestion_config.schema_name      # NEW: Pass schema name
+                table_name=self.data_ingestion_config.table_name,
+                schema=self.data_ingestion_config.schema_name
             )
             logging.info(f"Shape of dataframe: {dataframe.shape}")
             

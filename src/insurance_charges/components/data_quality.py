@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
-from insurance_charges.exception import InsuranceException
-from insurance_charges.logger import logging
+from src.insurance_charges.exception import InsuranceException
+from src.insurance_charges.logger import logging
 import sys
 
 class DataQualityChecker:

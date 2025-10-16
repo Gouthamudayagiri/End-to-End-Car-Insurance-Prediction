@@ -1,10 +1,10 @@
 import sys
-from insurance_charges.cloud_storage.aws_storage import SimpleStorageService
-from insurance_charges.exception import InsuranceException
-from insurance_charges.logger import logging
-from insurance_charges.entity.artifact_entity import ModelPusherArtifact, ModelEvaluationArtifact
-from insurance_charges.entity.config_entity import ModelPusherConfig
-from insurance_charges.entity.s3_estimator import InsuranceEstimator
+from src.insurance_charges.cloud_storage.aws_storage import SimpleStorageService
+from src.insurance_charges.exception import InsuranceException
+from src.insurance_charges.logger import logging
+from src.insurance_charges.entity.artifact_entity import ModelPusherArtifact, ModelEvaluationArtifact
+from src.insurance_charges.entity.config_entity import ModelPusherConfig
+from src.insurance_charges.entity.s3_estimator import InsuranceEstimator
 
 class ModelPusher:
     def __init__(self, model_evaluation_artifact: ModelEvaluationArtifact,

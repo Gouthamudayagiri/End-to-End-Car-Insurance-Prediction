@@ -1,7 +1,7 @@
 import time
 import logging
 from functools import wraps
-from insurance_charges.exception import InsuranceException
+from src.insurance_charges.exception import InsuranceException
 import sys
 
 def retry(attempts: int = 3, delay: float = 1.0, backoff: float = 2.0):

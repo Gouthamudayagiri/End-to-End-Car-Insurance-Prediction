@@ -1,11 +1,12 @@
+# src/insurance_charges/utils/main_utils.py
 import os
 import sys
 import numpy as np
 import dill
 import yaml
 from pandas import DataFrame
-from insurance_charges.exception import InsuranceException
-from insurance_charges.logger import logging
+from src.insurance_charges.exception import InsuranceException
+from src.insurance_charges.logger import logging
 
 def read_yaml_file(file_path: str) -> dict:
     try:
@@ -37,27 +38,24 @@ def load_object(file_path: str) -> object:
 
 def save_numpy_array_data(file_path: str, array: np.array):
     """
-    Save numpy array data to file
-    file_path: str location of file to save
-    array: np.array data to save
+    Save numpy array data to file with allow_pickle=True
     """
     try:
         dir_path = os.path.dirname(file_path)
         os.makedirs(dir_path, exist_ok=True)
         with open(file_path, 'wb') as file_obj:
-            np.save(file_obj, array)
+            np.save(file_obj, array, allow_pickle=True)
+        logging.info(f"Saved numpy array to {file_path}")
     except Exception as e:
         raise InsuranceException(e, sys) from e
 
 def load_numpy_array_data(file_path: str) -> np.array:
     """
-    load numpy array data from file
-    file_path: str location of file to load
-    return: np.array data loaded
+    load numpy array data from file with allow_pickle=True
     """
     try:
         with open(file_path, 'rb') as file_obj:
-            return np.load(file_obj)
+            return np.load(file_obj, allow_pickle=True)
     except Exception as e:
         raise InsuranceException(e, sys) from e
 
@@ -84,6 +82,7 @@ def drop_columns(df: DataFrame, cols: list) -> DataFrame:
         return df
     except Exception as e:
         raise InsuranceException(e, sys) from e
+
 def load_environment_variables():
     """
     Load environment variables from .env file
@@ -94,6 +93,7 @@ def load_environment_variables():
         logging.info("Environment variables loaded successfully")
     except Exception as e:
         logging.warning(f"Could not load .env file: {e}")
+
 def validate_environment_variables():
     """
     Validate that all required environment variables are set
@@ -111,8 +111,8 @@ def validate_environment_variables():
     
     if missing_vars:
         raise InsuranceException(
-            f"Missing required environment variables: {missing_vars}. "
-            f"Please check your .env file.", sys
+            f"Missing required environment variables: {missing_vars}. ",
+            sys
         )
     
     logging.info("All required environment variables are set")

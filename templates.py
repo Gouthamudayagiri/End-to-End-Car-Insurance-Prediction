@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-project_name = "insurance_charges"
+project_name = "src.insurance_charges"
 
 list_of_files = [
     # Source code in src directory
@@ -81,7 +81,7 @@ list_of_files = [
     # Environment & Setup
     ".env.example",
     "setup.py",
-    "pyproject.toml",
+    # "pyproject.toml",
     
     # Testing
     "tests/__init__.py",
@@ -111,8 +111,3 @@ for filepath in list_of_files:
         print(f"File already present at: {filepath}")
 
 print("\n✅ Project structure created successfully!")
-print("🚀 Next steps:")
-print("1. Fill in the configuration files")
-print("2. Update requirements.txt with dependencies") 
-print("3. Run: pip install -e .")
-print("4. Start developing!")

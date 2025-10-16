@@ -1,9 +1,9 @@
-from insurance_charges.configuration.postgres_db_connection import PostgreSQLClient
-from insurance_charges.constants import DATABASE_NAME
-from insurance_charges.exception import InsuranceException
+# src/insurance_charges/data_access/insurance_data.py
+from src.insurance_charges.configuration.postgres_db_connection import PostgreSQLClient
+from src.insurance_charges.constants import TABLE_NAME
+from src.insurance_charges.logger import logging
 import pandas as pd
 import sys
-from typing import Optional
 
 class InsuranceData:
     """
@@ -15,12 +15,11 @@ class InsuranceData:
         Initialize PostgreSQL client
         """
         try:
-            # Using default connection string from environment
             self.postgres_client = PostgreSQLClient()
         except Exception as e:
-            raise InsuranceException(e, sys)
+            logging.error(f"Failed to initialize PostgreSQL client: {str(e)}")
+            raise Exception(f"Database initialization failed: {str(e)}")
 
-    # In src/insurance_charges/data_access/insurance_data.py - UPDATE METHOD SIGNATURE:
     def export_table_as_dataframe(self, table_name: str = None, schema: str = None) -> pd.DataFrame:
         """
         Export data from existing PostgreSQL table
@@ -28,19 +27,18 @@ class InsuranceData:
         try:
             # Use provided table name or default from constants
             if table_name is None:
-                from insurance_charges.constants import TABLE_NAME
                 table_name = TABLE_NAME
             
-            if schema:
-                query = f"SELECT * FROM {schema}.{table_name}"
-            else:
-                query = f"SELECT * FROM {table_name}"
+            logging.info(f"Loading data from table: {table_name}")
             
-            df = pd.read_sql_query(query, self.postgres_client.engine)
+            df = self.postgres_client.export_table_as_dataframe(
+                table_name=table_name,
+                schema=schema
+            )
             
-            logging.info(f"Successfully loaded {len(df)} records from table: {schema}.{table_name}" if schema else f"Successfully loaded {len(df)} records from table: {table_name}")
+            logging.info(f"✅ Successfully loaded {len(df)} records from table: {table_name}")
             return df
             
         except Exception as e:
-            logging.error(f"Failed to load data from table {table_name}: {e}")
-            raise InsuranceException(e, sys)
+            logging.error(f"❌ Failed to load data from table {table_name}: {str(e)}")
+            raise Exception(f"Data loading failed: {str(e)}")

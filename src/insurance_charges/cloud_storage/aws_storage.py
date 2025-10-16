@@ -1,11 +1,14 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 import boto3
-from insurance_charges.configuration.aws_connection import S3Client
+from src.insurance_charges.configuration.aws_connection import S3Client
 from io import StringIO
 from typing import Union, List
 import os, sys
-from insurance_charges.logger import logging
+from src.insurance_charges.logger import logging
 from mypy_boto3_s3.service_resource import Bucket
-from insurance_charges.exception import InsuranceException
+from src.insurance_charges.exception import InsuranceException
 from botocore.exceptions import ClientError
 from pandas import DataFrame, read_csv
 import pickle
@@ -24,6 +27,18 @@ class SimpleStorageService:
                 return True
             else:
                 return False
+        except ClientError as e:
+            # Handle specific AWS errors gracefully
+            error_code = e.response['Error']['Code']
+            if error_code == 'NoSuchBucket':
+                print(f"⚠️ Bucket '{bucket_name}' doesn't exist")
+                return False
+            elif error_code == 'NoSuchKey':
+                print(f"⚠️ Path '{s3_key}' doesn't exist in bucket")
+                return False
+            else:
+                # Re-raise for other errors
+                raise InsuranceException(e, sys)
         except Exception as e:
             raise InsuranceException(e, sys)
         

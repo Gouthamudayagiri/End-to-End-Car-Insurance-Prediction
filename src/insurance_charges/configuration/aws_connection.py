@@ -1,6 +1,9 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 import boto3
 import os
-from insurance_charges.constants import AWS_SECRET_ACCESS_KEY_ENV_KEY, AWS_ACCESS_KEY_ID_ENV_KEY, REGION_NAME
+from src.insurance_charges.constants import AWS_SECRET_ACCESS_KEY_ENV_KEY, AWS_ACCESS_KEY_ID_ENV_KEY, REGION_NAME
 
 class S3Client:
     s3_client = None

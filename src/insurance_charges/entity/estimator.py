@@ -1,8 +1,9 @@
 import sys
 import pandas as pd
+from pandas import DataFrame  # ADD THIS IMPORT
 from sklearn.pipeline import Pipeline
-from insurance_charges.exception import InsuranceException
-from insurance_charges.logger import logging
+from src.insurance_charges.exception import InsuranceException
+from src.insurance_charges.logger import logging
 import datetime
 import json
 

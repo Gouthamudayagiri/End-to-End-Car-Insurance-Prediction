@@ -1,6 +1,6 @@
-from insurance_charges.cloud_storage.aws_storage import SimpleStorageService
-from insurance_charges.exception import InsuranceException
-from insurance_charges.entity.estimator import InsuranceModel
+from src.insurance_charges.cloud_storage.aws_storage import SimpleStorageService
+from src.insurance_charges.exception import InsuranceException
+from src.insurance_charges.entity.estimator import InsuranceModel
 import sys
 from pandas import DataFrame
 

@@ -1,15 +1,16 @@
 import os
 import sys
 import pandas as pd
+import numpy as np
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
-from insurance_charges.entity.config_entity import ModelEvaluationConfig
-from insurance_charges.entity.artifact_entity import ModelTrainerArtifact, DataIngestionArtifact, ModelEvaluationArtifact
-from insurance_charges.exception import InsuranceException
-from insurance_charges.constants import TARGET_COLUMN
-from insurance_charges.logger import logging
-from insurance_charges.utils.main_utils import write_yaml_file
+from src.insurance_charges.entity.config_entity import ModelEvaluationConfig
+from src.insurance_charges.entity.artifact_entity import ModelTrainerArtifact, DataIngestionArtifact, ModelEvaluationArtifact
+from src.insurance_charges.exception import InsuranceException
+from src.insurance_charges.constants import TARGET_COLUMN
+from src.insurance_charges.logger import logging
+from src.insurance_charges.utils.main_utils import write_yaml_file
 from typing import Optional
-from insurance_charges.entity.s3_estimator import InsuranceEstimator
+from src.insurance_charges.entity.s3_estimator import InsuranceEstimator
 from dataclasses import dataclass
 
 @dataclass
@@ -59,8 +60,24 @@ class ModelEvaluation:
                         with production model and choose best model 
         """
         try:
+            # Import the feature engineering function from data transformation
+            from src.insurance_charges.components.data_transformation import DataTransformation
+            
+            # Read the raw test data
             test_df = pd.read_csv(self.data_ingestion_artifact.test_file_path)
-            x, y = test_df.drop(TARGET_COLUMN, axis=1), test_df[TARGET_COLUMN]
+            
+            # Apply the SAME feature engineering that was done during training
+            data_transformation = DataTransformation(
+                data_ingestion_artifact=self.data_ingestion_artifact,
+                data_transformation_config=None,  # We don't need full config for feature engineering
+                data_validation_artifact=None
+            )
+            
+            # Apply feature engineering to test data
+            test_df_with_features = data_transformation._create_features(test_df)
+            
+            # Prepare features and target
+            x, y = test_df_with_features.drop(TARGET_COLUMN, axis=1), test_df_with_features[TARGET_COLUMN]
 
             # Get trained model metrics
             trained_model_r2_score = self.model_trainer_artifact.metric_artifact.r2_score

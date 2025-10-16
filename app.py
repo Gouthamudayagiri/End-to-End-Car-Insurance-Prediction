@@ -1,24 +1,21 @@
-from fastapi import FastAPI, Request, HTTPException
+# app.py - CAR INSURANCE VERSION (like your visa example)
+from fastapi import FastAPI, Request, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response, JSONResponse
+from fastapi.responses import Response, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from starlette.responses import HTMLResponse
 from uvicorn import run as app_run
-
 from typing import Optional
-import os
 
+import os
 import sys
 
+# Add current directory to path for proper imports
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-# Add src to path for proper imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
-
-from insurance_charges.constants import APP_HOST, APP_PORT
-from insurance_charges.pipeline.prediction_pipeline import InsuranceData, InsuranceClassifier
-from insurance_charges.pipeline.training_pipeline import TrainPipeline
-from insurance_charges.utils.main_utils import validate_environment_variables
+from src.insurance_charges.constants import APP_HOST, APP_PORT
+from src.insurance_charges.pipeline.prediction_pipeline import InsuranceData, InsuranceClassifier
+from src.insurance_charges.pipeline.training_pipeline import TrainPipeline
 
 app = FastAPI(
     title="Insurance Charges Prediction API",
@@ -39,36 +36,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.on_event("startup")
-async def startup_event():
-    """Validate environment variables on startup"""
-    try:
-        validate_environment_variables()
-        logging.info("Application started successfully")
-    except Exception as e:
-        logging.error(f"Startup validation failed: {e}")
-        # Don't raise here to allow the app to start for debugging
+class InsuranceForm:
+    def __init__(self, request: Request):
+        self.request: Request = request
+        self.age: Optional[str] = None
+        self.sex: Optional[str] = None
+        self.bmi: Optional[str] = None
+        self.children: Optional[str] = None
+        self.smoker: Optional[str] = None
+        self.region: Optional[str] = None
 
-@app.get("/health")
-async def health_check():
-    """Health check endpoint"""
-    try:
-        # Check if model can be loaded
-        predictor = InsuranceClassifier()
-        
-        return {
-            "status": "healthy",
-            "message": "Insurance Charges Prediction API is running",
-            "version": "1.0.0"
-        }
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Service unhealthy: {e}")
+    async def get_insurance_data(self):
+        form = await self.request.form()
+        self.age = form.get("age")
+        self.sex = form.get("sex")
+        self.bmi = form.get("bmi")
+        self.children = form.get("children")
+        self.smoker = form.get("smoker")
+        self.region = form.get("region")
 
-@app.get("/", tags=["authentication"])
+@app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     return templates.TemplateResponse(
         "insurance.html", 
-        {"request": request, "context": "Rendering"}
+        {"request": request, "context": "Enter your details to predict insurance charges"}
     )
 
 @app.get("/train")
@@ -76,61 +67,23 @@ async def trainRouteClient():
     try:
         train_pipeline = TrainPipeline()
         train_pipeline.run_pipeline()
-        return JSONResponse(
-            content={"status": "success", "message": "Training completed successfully"}
-        )
-    except Exception as e:
-        return JSONResponse(
-            status_code=500,
-            content={"status": "error", "message": f"Training failed: {str(e)}"}
-        )
+        return Response("Training successful !!")
 
-@app.post("/predict")
-async def predict_insurance_charges(request: Request):
-    try:
-        form = DataForm(request)
-        await form.get_insurance_data()
-        
-        # Validate input data
-        if not all([form.age, form.sex, form.bmi, form.children, form.smoker, form.region]):
-            raise HTTPException(status_code=400, detail="All fields are required")
-        
-        insurance_data = InsuranceData(
-            age=int(form.age),
-            sex=form.sex,
-            bmi=float(form.bmi),
-            children=int(form.children),
-            smoker=form.smoker,
-            region=form.region
-        )
-        
-        insurance_df = insurance_data.get_insurance_input_data_frame()
-        model_predictor = InsuranceClassifier()
-        predicted_charges = model_predictor.predict(dataframe=insurance_df)
-        
-        # Format the prediction result
-        formatted_charges = f"${predicted_charges:,.2f}" if predicted_charges > 0 else "$0.00"
-        
-        return JSONResponse(
-            content={
-                "status": "success",
-                "prediction": float(predicted_charges),
-                "formatted_prediction": formatted_charges,
-                "input_data": insurance_data.get_insurance_data_as_dict()
-            }
-        )
-        
-    except HTTPException:
-        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
+        return Response(f"Error Occurred! {e}")
 
 @app.post("/")
 async def predictRouteClient(request: Request):
-    """Legacy endpoint for form submissions"""
     try:
-        form = DataForm(request)
+        form = InsuranceForm(request)
         await form.get_insurance_data()
+        
+        # Validate required fields
+        if not all([form.age, form.sex, form.bmi, form.children, form.smoker, form.region]):
+            return templates.TemplateResponse(
+                "insurance.html",
+                {"request": request, "context": "Please fill all fields!"},
+            )
         
         insurance_data = InsuranceData(
             age=int(form.age),
@@ -143,9 +96,10 @@ async def predictRouteClient(request: Request):
         
         insurance_df = insurance_data.get_insurance_input_data_frame()
         model_predictor = InsuranceClassifier()
-        predicted_charges = model_predictor.predict(dataframe=insurance_df)
+        predicted_charges = model_predictor.predict(dataframe=insurance_df)[0]
         
-        formatted_charges = f"${predicted_charges:,.2f}" if predicted_charges > 0 else "$0.00"
+        # Format the prediction
+        formatted_charges = f"${float(predicted_charges):,.2f}"
         
         return templates.TemplateResponse(
             "insurance.html",
@@ -153,7 +107,10 @@ async def predictRouteClient(request: Request):
         )
         
     except Exception as e:
-        return {"status": False, "error": f"{e}"}
+        return templates.TemplateResponse(
+            "insurance.html",
+            {"request": request, "context": f"Error: {str(e)}"},
+        )
 
 if __name__ == "__main__":
     app_run(app, host=APP_HOST, port=APP_PORT)

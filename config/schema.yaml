@@ -1,3 +1,4 @@
+# config/schema.yaml
 columns:
   - age: int
   - sex: category
@@ -6,54 +7,34 @@ columns:
   - smoker: category
   - region: category
   - charges: float
-  - age_category: category
-  - bmi_category: category
-  - children_flag: int
-  - smoker_bmi_interaction: float
-  - risk_score: float
-  - log_charges: float
 
 numerical_columns:
   - age
   - bmi
   - children
   - charges
-  - children_flag
-  - smoker_bmi_interaction
-  - risk_score
-  - log_charges
 
 categorical_columns:
   - sex
   - smoker
   - region
-  - age_category
-  - bmi_category
 
-drop_columns:
-  - log_charges  # We'll use original charges as target
+drop_columns: []
 
 # for data transformation
 num_features:
   - age
   - bmi
   - children
-  - risk_score
-  - smoker_bmi_interaction
 
 or_columns:
   - sex
   - smoker
-  - children_flag
 
 oh_columns:
   - region
-  - age_category
-  - bmi_category
 
 transform_columns:
   - bmi
-  - charges
-  - risk_score
 
 target_column: charges

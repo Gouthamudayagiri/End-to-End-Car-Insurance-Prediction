@@ -5,9 +5,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats.mstats import winsorize
-from insurance_charges.exception import InsuranceException
-from insurance_charges.logger import logging
-from insurance_charges.utils.main_utils import write_yaml_file
+from src.insurance_charges.exception import InsuranceException
+from src.insurance_charges.logger import logging
+from src.insurance_charges.utils.main_utils import write_yaml_file
 
 class DataAnalysis:
     """
