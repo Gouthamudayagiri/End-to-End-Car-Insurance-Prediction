@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Insurance Charges Prediction</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/style.css')}}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-iYQeCzEYFbKjA/T2uDLTpkwGzCiq6soy8tYaI1GyVh/UjpbCx/TYkiZhlZB6+fzT" crossorigin="anonymous">
+  </head>
+  <body>
+    <nav class="navbar navbar-light bg-light static-top">
+        <div class="container-fluid">
+           <a class="navbar-brand" href="#">
+             <h2>Insurance Charges Prediction</h2>
+             <small class="text-muted">by Goutham</small>
+           </a>
+        </div>
+     </nav>
+    <section>
+        <div class="container-fluid">
+            <div class="container">
+                <form action="/" method="post">
+                    <legend>Insurance Charges Prediction Form</legend>
+                    
+                    <div class="mb-3">
+                        <label for="age" class="form-label">Age</label>
+                        <input type="number" class="form-control" id="age" name="age" min="18" max="100" placeholder="Enter age (18-100)" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="sex" class="form-label">Gender</label>
+                        <select class="form-control" id="sex" name="sex" required>
+                            <option value="" disabled selected>Select Gender</option>
+                            <option value="male">Male</option>
+                            <option value="female">Female</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="bmi" class="form-label">BMI</label>
+                        <input type="number" class="form-control" id="bmi" name="bmi" min="15" max="50" step="0.1" placeholder="Enter BMI (15-50)" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="children" class="form-label">Number of Children</label>
+                        <input type="number" class="form-control" id="children" name="children" min="0" max="10" placeholder="Enter number of children" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="smoker" class="form-label">Smoker</label>
+                        <select class="form-control" id="smoker" name="smoker" required>
+                            <option value="" disabled selected>Select Smoker Status</option>
+                            <option value="yes">Yes</option>
+                            <option value="no">No</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="region" class="form-label">Region</label>
+                        <select class="form-control" id="region" name="region" required>
+                            <option value="" disabled selected>Select Region</option>
+                            <option value="southwest">Southwest</option>
+                            <option value="southeast">Southeast</option>
+                            <option value="northwest">Northwest</option>
+                            <option value="northeast">Northeast</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <input class="btn btn-primary btn-lg" type="submit" value="Predict Insurance Charges" />
+                    </div>
+                    
+                </form>
+            </div>
+            <div class="text-center text-black mt-4">
+                <h2 class="display-6 fw-bolder">{{context}}</h2>
+            </div>
+            <div class="text-center mt-3">
+                <a href="/train" class="btn btn-success">Train Model</a>
+            </div>
+        </div>
+    </section>
+    
+    <footer class="bg-light text-center text-lg-start mt-5">
+        <div class="text-center p-3">
+            © 2024 Insurance Charges Prediction - Developed by Goutham
+        </div>
+    </footer>
+
+    <script src="https://code.jquery.com/jquery-3.2.1.js"></script>
+    <script type="text/javascript">
+        $(".input").focus(function(){
+            $(this).parent().addClass("focus");
+        }).blur(function(){
+            if($(this).val() === ''){
+                $(this).parent().removeClass("focus");
+            }
+        })
+    </script>
+  </body>
+</html>
