@@ -14,3 +14,11 @@ A machine learning project to predict insurance charges based on customer demogr
 - **Cloud Integration**: AWS S3 for model storage
 
 ## Project Structure
+
+
+
+```
+mlflow ui --backend-store-uri file:///./mlruns --port 5000
+ http://localhost:5000 
+
+ ````

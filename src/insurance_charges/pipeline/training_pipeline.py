@@ -30,7 +30,7 @@ from src.insurance_charges.entity.artifact_entity import (
 )
 
 from src.insurance_charges.constants import SCHEMA_FILE_PATH
-from src.insurance_charges.utils.main_utils import load_environment_variables, validate_environment_variables
+from src.insurance_charges.utils.main_utils import load_environment_variables, validate_environment_variables, load_object  # ADD load_object HERE
 
 # MLflow imports - ADDED
 try:
@@ -200,14 +200,12 @@ class TrainPipeline:
 
     def start_model_trainer(self, data_transformation_artifact: DataTransformationArtifact) -> ModelTrainerArtifact:
         """
-        Start model training component with MLflow tracking - FIXED
+        Start model training component with MLflow tracking - FIXED WITH ARTIFACTS
         """
         try:
             logging.info("=" * 50)
             logging.info("Starting Model Training...")
             logging.info("=" * 50)
-            
-            # REMOVED: mlflow.start_run() - using the parent pipeline run instead
             
             model_trainer = ModelTrainer(
                 data_transformation_artifact=data_transformation_artifact,
@@ -215,21 +213,53 @@ class TrainPipeline:
             )
             model_trainer_artifact = model_trainer.initiate_model_trainer()
             
-            # Log training metrics to MLflow - ADDED
+            # Log training metrics and artifacts to MLflow - UPDATED
             if MLFLOW_AVAILABLE:
+                # Log metrics
                 mlflow.log_metrics({
                     "train_r2_score": model_trainer_artifact.metric_artifact.r2_score,
                     "train_rmse": model_trainer_artifact.metric_artifact.rmse,
                     "train_mae": model_trainer_artifact.metric_artifact.mae
                 })
-                # Get model name from the trained model object
-                trained_model = model_trainer_artifact.trained_model
-                model_name = type(trained_model).__name__ if hasattr(model_trainer_artifact, 'trained_model') else "Unknown"
+                
+                # Log parameters
                 mlflow.log_params({
-                    "best_model": model_name,
-                    "feature_count": getattr(model_trainer_artifact, 'feature_count', 'unknown')
+                    "best_model": model_trainer_artifact.model_name,
+                    "feature_count": model_trainer_artifact.feature_count
                 })
-                logging.info("✅ Training metrics logged to MLflow")
+                
+                # LOG ARTIFACTS - ADD THIS SECTION
+                try:
+                    # Log the trained model
+                    mlflow.sklearn.log_model(
+                        model_trainer_artifact.trained_model,
+                        "trained_model",
+                        registered_model_name=f"insurance_charges_{model_trainer_artifact.model_name}"
+                    )
+                    logging.info("✅ Trained model logged to MLflow")
+                    
+                    # Log preprocessing object - FIXED: Now load_object is imported
+                    preprocessing_obj = load_object(data_transformation_artifact.transformed_object_file_path)
+                    mlflow.sklearn.log_model(
+                        preprocessing_obj,
+                        "preprocessor"
+                    )
+                    logging.info("✅ Preprocessing object logged to MLflow")
+                    
+                    # Log model report
+                    model_report_path = os.path.join(
+                        os.path.dirname(model_trainer_artifact.trained_model_file_path),
+                        'artifacts',
+                        'model_report.yaml'
+                    )
+                    if os.path.exists(model_report_path):
+                        mlflow.log_artifact(model_report_path, "model_report")
+                        logging.info("✅ Model report logged to MLflow")
+                        
+                except Exception as e:
+                    logging.warning(f"Could not log all artifacts to MLflow: {e}")
+                
+                logging.info("✅ Training metrics and artifacts logged to MLflow")
             
             logging.info("✅ Model training completed successfully")
             logging.info(f"Model trainer artifact: {model_trainer_artifact}")
@@ -248,8 +278,6 @@ class TrainPipeline:
             logging.info("=" * 50)
             logging.info("Starting Model Evaluation...")
             logging.info("=" * 50)
-            
-            # REMOVED: mlflow.start_run() - using the parent pipeline run instead
             
             model_evaluation = ModelEvaluation(
                 model_eval_config=self.model_evaluation_config,
@@ -317,7 +345,7 @@ class TrainPipeline:
 
     def run_pipeline(self) -> None:
         """
-        Execute the complete training pipeline with MLflow tracking - FIXED
+        Execute the complete training pipeline with MLflow tracking - UPDATED WITH MORE ARTIFACTS
         """
         try:
             logging.info("=" * 80)
@@ -328,15 +356,15 @@ class TrainPipeline:
                 logging.info("📊 MLflow Experiment Tracking: DISABLED")
             logging.info("=" * 80)
             
-            # Step 1: Load environment variables (but don't require AWS for local development)
+            # Step 1: Load environment variables
             logging.info("Step 1: Loading environment variables...")
             load_environment_variables()
             
-            # Step 2: Validate configurations (skip AWS validation for now)
+            # Step 2: Validate configurations
             logging.info("Step 2: Validating pipeline configurations...")
             self.validate_pipeline_config()
             
-            # Start main MLflow run for entire pipeline - ADDED
+            # Start main MLflow run for entire pipeline
             if MLFLOW_AVAILABLE:
                 import datetime
                 # End any active runs first
@@ -348,6 +376,31 @@ class TrainPipeline:
                     tags={"pipeline_type": "full_training", "project": "insurance_charges"}
                 )
                 logging.info(f"📊 MLflow pipeline run started: {pipeline_run.info.run_id}")
+                
+                # Log pipeline configuration as artifact
+                try:
+                    config_artifacts = {
+                        "data_ingestion": {
+                            "train_test_split": self.data_ingestion_config.train_test_split_ratio,
+                            "table_name": self.data_ingestion_config.table_name
+                        },
+                        "model_training": {
+                            "expected_accuracy": self.model_trainer_config.expected_accuracy,
+                            "model_config_path": self.model_trainer_config.model_config_file_path
+                        }
+                    }
+                    
+                    # Save config to temporary file and log as artifact
+                    import tempfile
+                    with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+                        import yaml
+                        yaml.dump(config_artifacts, f)
+                        mlflow.log_artifact(f.name, "pipeline_config")
+                        os.unlink(f.name)  # Delete temp file
+                        
+                    logging.info("✅ Pipeline configuration logged to MLflow")
+                except Exception as e:
+                    logging.warning(f"Could not log pipeline config: {e}")
             
             # Step 3: Data Ingestion
             logging.info("Step 3: Starting data ingestion...")
@@ -416,6 +469,26 @@ class TrainPipeline:
                 # Log to MLflow - ADDED
                 if MLFLOW_AVAILABLE:
                     mlflow.log_param("deployment_status", "not_accepted")
+            
+            # After all steps, log final artifacts
+            if MLFLOW_AVAILABLE:
+                try:
+                    # Log schema file
+                    if os.path.exists(SCHEMA_FILE_PATH):
+                        mlflow.log_artifact(SCHEMA_FILE_PATH, "schema")
+                        logging.info("✅ Schema file logged to MLflow")
+                    
+                    # Log analysis reports if they exist
+                    analysis_artifact_dir = os.path.join(
+                        self.data_ingestion_config.data_ingestion_dir, 
+                        'analysis_artifacts'
+                    )
+                    if os.path.exists(analysis_artifact_dir):
+                        mlflow.log_artifacts(analysis_artifact_dir, "data_analysis")
+                        logging.info("✅ Data analysis artifacts logged to MLflow")
+                        
+                except Exception as e:
+                    logging.warning(f"Could not log final artifacts: {e}")
             
             # Log final pipeline status to MLflow - ADDED
             if MLFLOW_AVAILABLE:

@@ -1,0 +1,10 @@
+artifact_location: file:///C:/Users/ghm/Desktop/Projects/car%20insurance/End-to-End-Car-Insurance-Prediction/mlruns/0/models/m-cb66900ca633404cbfdb34649403f99d/artifacts
+creation_timestamp: 1760716034765
+experiment_id: '0'
+last_updated_timestamp: 1760716048294
+model_id: m-cb66900ca633404cbfdb34649403f99d
+model_type: null
+name: test_model
+source_run_id: 899754f44f084425aeea27426b5b06d2
+status: 2
+status_message: null
