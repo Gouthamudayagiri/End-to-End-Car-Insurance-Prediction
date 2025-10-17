@@ -111,6 +111,10 @@ class ModelTrainer:
         except Exception as e:
             raise InsuranceException(e, sys) from e
 
+    # In your model_trainer.py, update the initiate_model_trainer method:
+
+    # In your model_trainer.py, update the initiate_model_trainer method:
+
     def initiate_model_trainer(self) -> ModelTrainerArtifact:
         """
         Method Name :   initiate_model_trainer
@@ -166,9 +170,13 @@ class ModelTrainer:
                 mae=final_mae
             )
 
+            # FIXED: Add all required attributes including trained_model
             model_trainer_artifact = ModelTrainerArtifact(
                 trained_model_file_path=self.model_trainer_config.trained_model_file_path,
                 metric_artifact=metric_artifact,
+                model_name=model_report['best_model'],
+                feature_count=x_test.shape[1],
+                trained_model=best_model  # ADD THIS LINE - FIXES THE ISSUE
             )
             
             logging.info(f"Model trainer artifact: {model_trainer_artifact}")

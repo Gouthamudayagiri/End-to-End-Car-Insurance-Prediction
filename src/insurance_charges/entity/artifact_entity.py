@@ -1,9 +1,12 @@
+# src/insurance_charges/entity/artifact_entity.py
 from dataclasses import dataclass
+from typing import Optional, Any
 
 @dataclass
 class DataIngestionArtifact:
     trained_file_path: str 
     test_file_path: str 
+    dataset_size: int = 0
 
 @dataclass
 class DataValidationArtifact:
@@ -27,6 +30,9 @@ class RegressionMetricArtifact:
 class ModelTrainerArtifact:
     trained_model_file_path: str 
     metric_artifact: RegressionMetricArtifact
+    model_name: str = "unknown"
+    feature_count: int = 0
+    trained_model: Any = None  # ADD THIS LINE - FIXES THE ISSUE
 
 @dataclass
 class ModelEvaluationArtifact:

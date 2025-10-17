@@ -32,6 +32,16 @@ from src.insurance_charges.entity.artifact_entity import (
 from src.insurance_charges.constants import SCHEMA_FILE_PATH
 from src.insurance_charges.utils.main_utils import load_environment_variables, validate_environment_variables
 
+# MLflow imports - ADDED
+try:
+    import mlflow
+    import mlflow.sklearn
+    from src.insurance_charges.utils.mlflow_config import MLflowConfig
+    MLFLOW_AVAILABLE = True
+except ImportError:
+    MLFLOW_AVAILABLE = False
+    logging.warning("MLflow not available - proceeding without experiment tracking")
+
 
 class TrainPipeline:
     def __init__(self):
@@ -45,6 +55,14 @@ class TrainPipeline:
             self.model_trainer_config = ModelTrainerConfig()
             self.model_evaluation_config = ModelEvaluationConfig()
             self.model_pusher_config = ModelPusherConfig()
+            
+            # MLflow initialization - ADDED
+            if MLFLOW_AVAILABLE:
+                self.mlflow_config = MLflowConfig()
+                logging.info("MLflow configured successfully")
+            else:
+                logging.info("MLflow not available - using local training only")
+                
             logging.info("Training pipeline initialized successfully")
         except Exception as e:
             raise InsuranceException(e, sys) from e
@@ -182,18 +200,36 @@ class TrainPipeline:
 
     def start_model_trainer(self, data_transformation_artifact: DataTransformationArtifact) -> ModelTrainerArtifact:
         """
-        Start model training component
+        Start model training component with MLflow tracking - FIXED
         """
         try:
             logging.info("=" * 50)
             logging.info("Starting Model Training...")
             logging.info("=" * 50)
             
+            # REMOVED: mlflow.start_run() - using the parent pipeline run instead
+            
             model_trainer = ModelTrainer(
                 data_transformation_artifact=data_transformation_artifact,
                 model_trainer_config=self.model_trainer_config
             )
             model_trainer_artifact = model_trainer.initiate_model_trainer()
+            
+            # Log training metrics to MLflow - ADDED
+            if MLFLOW_AVAILABLE:
+                mlflow.log_metrics({
+                    "train_r2_score": model_trainer_artifact.metric_artifact.r2_score,
+                    "train_rmse": model_trainer_artifact.metric_artifact.rmse,
+                    "train_mae": model_trainer_artifact.metric_artifact.mae
+                })
+                # Get model name from the trained model object
+                trained_model = model_trainer_artifact.trained_model
+                model_name = type(trained_model).__name__ if hasattr(model_trainer_artifact, 'trained_model') else "Unknown"
+                mlflow.log_params({
+                    "best_model": model_name,
+                    "feature_count": getattr(model_trainer_artifact, 'feature_count', 'unknown')
+                })
+                logging.info("✅ Training metrics logged to MLflow")
             
             logging.info("✅ Model training completed successfully")
             logging.info(f"Model trainer artifact: {model_trainer_artifact}")
@@ -206,12 +242,14 @@ class TrainPipeline:
                              data_ingestion_artifact: DataIngestionArtifact,
                              model_trainer_artifact: ModelTrainerArtifact) -> ModelEvaluationArtifact:
         """
-        Start model evaluation component
+        Start model evaluation component with MLflow tracking - FIXED
         """
         try:
             logging.info("=" * 50)
             logging.info("Starting Model Evaluation...")
             logging.info("=" * 50)
+            
+            # REMOVED: mlflow.start_run() - using the parent pipeline run instead
             
             model_evaluation = ModelEvaluation(
                 model_eval_config=self.model_evaluation_config,
@@ -219,6 +257,14 @@ class TrainPipeline:
                 model_trainer_artifact=model_trainer_artifact
             )
             model_evaluation_artifact = model_evaluation.initiate_model_evaluation()
+            
+            # Log evaluation results to MLflow - ADDED
+            if MLFLOW_AVAILABLE:
+                mlflow.log_metrics({
+                    "test_r2_score": getattr(model_evaluation_artifact, 'changed_accuracy', 0),
+                    "is_model_accepted": int(model_evaluation_artifact.is_model_accepted)
+                })
+                logging.info("✅ Evaluation metrics logged to MLflow")
             
             logging.info("✅ Model evaluation completed successfully")
             logging.info(f"Model evaluation artifact: {model_evaluation_artifact}")
@@ -229,7 +275,7 @@ class TrainPipeline:
 
     def start_model_pusher(self, model_evaluation_artifact: ModelEvaluationArtifact) -> ModelPusherArtifact:
         """
-        Start model pushing component
+        Start model pushing component with MLflow tracking - FIXED
         """
         try:
             logging.info("=" * 50)
@@ -239,6 +285,12 @@ class TrainPipeline:
             # Only push if model is accepted
             if not model_evaluation_artifact.is_model_accepted:
                 logging.info("Model not accepted, skipping model pushing")
+                
+                # Log to MLflow - ADDED
+                if MLFLOW_AVAILABLE:
+                    mlflow.log_param("model_pushed", False)
+                    mlflow.log_param("push_reason", "model_not_accepted")
+                    
                 return ModelPusherArtifact(
                     bucket_name=self.model_pusher_config.bucket_name,
                     s3_model_path=self.model_pusher_config.s3_model_key_path
@@ -250,6 +302,12 @@ class TrainPipeline:
             )
             model_pusher_artifact = model_pusher.initiate_model_pusher()
             
+            # Log successful push to MLflow - ADDED
+            if MLFLOW_AVAILABLE:
+                mlflow.log_param("model_pushed", True)
+                mlflow.log_param("s3_location", model_pusher_artifact.s3_model_path)
+                logging.info("✅ Model push status logged to MLflow")
+            
             logging.info("✅ Model pushing completed successfully")
             logging.info(f"Model pusher artifact: {model_pusher_artifact}")
             return model_pusher_artifact
@@ -259,11 +317,15 @@ class TrainPipeline:
 
     def run_pipeline(self) -> None:
         """
-        Execute the complete training pipeline
+        Execute the complete training pipeline with MLflow tracking - FIXED
         """
         try:
             logging.info("=" * 80)
             logging.info("🚀 STARTING INSURANCE CHARGES TRAINING PIPELINE")
+            if MLFLOW_AVAILABLE:
+                logging.info("📊 MLflow Experiment Tracking: ENABLED")
+            else:
+                logging.info("📊 MLflow Experiment Tracking: DISABLED")
             logging.info("=" * 80)
             
             # Step 1: Load environment variables (but don't require AWS for local development)
@@ -274,9 +336,29 @@ class TrainPipeline:
             logging.info("Step 2: Validating pipeline configurations...")
             self.validate_pipeline_config()
             
+            # Start main MLflow run for entire pipeline - ADDED
+            if MLFLOW_AVAILABLE:
+                import datetime
+                # End any active runs first
+                if mlflow.active_run():
+                    mlflow.end_run()
+                    
+                pipeline_run = mlflow.start_run(
+                    run_name=f"pipeline_run_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                    tags={"pipeline_type": "full_training", "project": "insurance_charges"}
+                )
+                logging.info(f"📊 MLflow pipeline run started: {pipeline_run.info.run_id}")
+            
             # Step 3: Data Ingestion
             logging.info("Step 3: Starting data ingestion...")
             data_ingestion_artifact = self.start_data_ingestion()
+            
+            # Log data ingestion info to MLflow - ADDED
+            if MLFLOW_AVAILABLE:
+                mlflow.log_params({
+                    "train_test_split": self.data_ingestion_config.train_test_split_ratio,
+                    "dataset_size": getattr(data_ingestion_artifact, 'dataset_size', 'unknown')
+                })
             
             # Step 4: Data Analysis
             logging.info("Step 4: Performing data analysis...")
@@ -324,14 +406,37 @@ class TrainPipeline:
                     logging.warning(f"⚠️ AWS deployment skipped: {aws_error}")
                     logging.info("🎯 Model trained successfully and saved locally!")
                     logging.info(f"📍 Local model path: {model_evaluation_artifact.trained_model_path}")
+                    
+                    # Log deployment status to MLflow - ADDED
+                    if MLFLOW_AVAILABLE:
+                        mlflow.log_param("deployment_status", "local_only")
+                        mlflow.log_param("deployment_error", str(aws_error))
             else:
                 logging.info("Step 9: Model not accepted, skipping deployment")
+                # Log to MLflow - ADDED
+                if MLFLOW_AVAILABLE:
+                    mlflow.log_param("deployment_status", "not_accepted")
+            
+            # Log final pipeline status to MLflow - ADDED
+            if MLFLOW_AVAILABLE:
+                mlflow.log_param("pipeline_status", "completed_successfully")
+                mlflow.end_run()
+                logging.info("✅ MLflow pipeline run completed")
             
             logging.info("=" * 80)
             logging.info("🎉 TRAINING PIPELINE COMPLETED SUCCESSFULLY!")
             logging.info("=" * 80)
             
         except Exception as e:
+            # Log pipeline failure to MLflow - ADDED
+            if MLFLOW_AVAILABLE:
+                try:
+                    mlflow.log_param("pipeline_status", "failed")
+                    mlflow.log_param("error", str(e))
+                    mlflow.end_run()
+                except:
+                    pass
+            
             logging.error("=" * 80)
             logging.error("❌ TRAINING PIPELINE FAILED!")
             logging.error(f"Error: {e}")

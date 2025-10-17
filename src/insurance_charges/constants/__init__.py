@@ -67,3 +67,8 @@ FEATURE_STORE_DIR: str = "feature_store"
 
 # Model configuration
 HYPERPARAMETER_CONFIG_FILE_PATH: str = os.path.join("config", "hyperparameters.yaml")
+
+# Add to existing constants
+MLFLOW_TRACKING_URI = os.getenv('MLFLOW_TRACKING_URI', 'file:///./mlruns')
+MLFLOW_EXPERIMENT_NAME = "insurance-charges-production"
+S3_ARTIFACT_LOCATION = f"s3://insurance-charges-model-2025/mlflow/artifacts"
