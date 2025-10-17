@@ -1,0 +1,71 @@
+# dvc.yaml
+stages:
+  data_ingestion:
+    cmd: python -c "from src.insurance_charges.pipeline.training_pipeline import TrainPipeline; pipeline = TrainPipeline(); pipeline.start_data_ingestion()"
+    deps:
+      - src/insurance_charges/components/data_ingestion.py
+      - config/schema.yaml
+    params:
+      - data_ingestion.train_test_split_ratio
+    metrics:
+      - artifact/*/data_ingestion/ingested/data_metrics.json:
+          cache: false
+    outs:
+      - artifact/*/data_ingestion/ingested/train.csv
+      - artifact/*/data_ingestion/ingested/test.csv
+
+  data_validation:
+    cmd: python -c "from src.insurance_charges.pipeline.training_pipeline import TrainPipeline; pipeline = TrainPipeline(); data_ingestion = pipeline.start_data_ingestion(); pipeline.start_data_validation(data_ingestion)"
+    deps:
+      - src/insurance_charges/components/data_validation.py
+      - artifact/*/data_ingestion/ingested/train.csv
+      - artifact/*/data_ingestion/ingested/test.csv
+    params:
+      - data_validation
+    metrics:
+      - artifact/*/data_validation/drift_report/report.yaml:
+          cache: false
+    outs:
+      - artifact/*/data_validation/drift_report
+
+  data_transformation:
+    cmd: python -c "from src.insurance_charges.pipeline.training_pipeline import TrainPipeline; pipeline = TrainPipeline(); data_ingestion = pipeline.start_data_ingestion(); data_validation = pipeline.start_data_validation(data_ingestion); pipeline.start_data_transformation(data_ingestion, data_validation)"
+    deps:
+      - src/insurance_charges/components/data_transformation.py
+      - artifact/*/data_ingestion/ingested/train.csv
+      - artifact/*/data_ingestion/ingested/test.csv
+    params:
+      - data_transformation
+    outs:
+      - artifact/*/data_transformation/transformed_object/preprocessing.pkl
+      - artifact/*/data_transformation/transformed/train.npy
+      - artifact/*/data_transformation/transformed/test.npy
+
+  model_training:
+    cmd: python -c "from src.insurance_charges.pipeline.training_pipeline import TrainPipeline; pipeline = TrainPipeline(); data_ingestion = pipeline.start_data_ingestion(); data_validation = pipeline.start_data_validation(data_ingestion); data_transformation = pipeline.start_data_transformation(data_ingestion, data_validation); pipeline.start_model_trainer(data_transformation)"
+    deps:
+      - src/insurance_charges/components/model_trainer.py
+      - artifact/*/data_transformation/transformed/train.npy
+      - artifact/*/data_transformation/transformed/test.npy
+    params:
+      - model_trainer.expected_accuracy
+    metrics:
+      - artifact/*/model_trainer/artifacts/model_report.yaml:
+          cache: false
+    outs:
+      - artifact/*/model_trainer/trained_model/model.pkl
+
+  full_pipeline:
+    cmd: python test.py
+    deps:
+      - src/insurance_charges/pipeline/training_pipeline.py
+      - config/schema.yaml
+      - config/model.yaml
+    params:
+      - data_ingestion.train_test_split_ratio
+      - model_trainer.expected_accuracy
+    metrics:
+      - artifact/*/model_trainer/artifacts/model_report.yaml:
+          cache: false
+    outs:
+      - artifact/*/model_trainer/trained_model/model.pkl

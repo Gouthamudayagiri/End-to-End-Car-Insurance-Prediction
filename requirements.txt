@@ -19,3 +19,5 @@ seaborn>=0.11.0
 mypy-boto3-s3>=1.26.0
 mlflow>=2.8.0
 from-root>=1.0.0
+dvc
+dvc-s3

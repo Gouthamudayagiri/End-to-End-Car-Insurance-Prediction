@@ -1,0 +1,82 @@
+schema: '2.0'
+stages:
+  full_pipeline:
+    cmd: python dvc_pipeline.py --stage full
+    deps:
+    - path: config/schema.yaml
+      hash: md5
+      md5: 3b43a738841129d33a13fd0cf477f0f4
+      size: 502
+    - path: dvc_pipeline.py
+      hash: md5
+      md5: 482f412f8c211bddc8c1221d6a77d138
+      size: 10129
+    - path: src/insurance_charges/components/data_ingestion.py
+      hash: md5
+      md5: 0c44b0e11398e53c378fc02b89fd9631
+      size: 4326
+    - path: src/insurance_charges/components/data_transformation.py
+      hash: md5
+      md5: 15e7eebd7e627a9f340643a4335059bb
+      size: 12130
+    - path: src/insurance_charges/components/data_validation.py
+      hash: md5
+      md5: fb756c035288be0071d9fc4501951271
+      size: 14291
+    - path: src/insurance_charges/components/model_trainer.py
+      hash: md5
+      md5: 486fd338b0a463664a4d960db9804158
+      size: 8331
+    params:
+      params.yaml:
+        data_ingestion.train_test_split_ratio: 0.2
+        model_trainer.expected_accuracy: 0.6
+    outs:
+    - path: data/processed/test.csv
+      hash: md5
+      md5: 2223ea6396e0d93d4f30928e368d39ad
+      size: 11192
+    - path: data/processed/train.csv
+      hash: md5
+      md5: 8e47cf90c63d061867bb09e4f01797cd
+      size: 44542
+    - path: data/transformed/test.npy
+      hash: md5
+      md5: f46c58c1f3aa0c23f62ae198f6ca43fb
+      size: 28000
+    - path: data/transformed/train.npy
+      hash: md5
+      md5: 83defade7d7622e92771d0aa886c5f22
+      size: 111408
+    - path: metrics/data_ingestion.json
+      hash: md5
+      md5: 75d7c3d559c2c8ff4aca63290420de98
+      size: 133
+    - path: metrics/data_transformation.json
+      hash: md5
+      md5: ce3f398330edb35cad845f2c19e499d0
+      size: 215
+    - path: metrics/data_validation.json
+      hash: md5
+      md5: 912a870292468806f4ac91cfb034fd36
+      size: 150
+    - path: metrics/model_training.json
+      hash: md5
+      md5: 82ad7ebbb6265f62215b912a1d02c87d
+      size: 236
+    - path: metrics/pipeline_metrics.json
+      hash: md5
+      md5: d452b7d36339b642e79460c6ff387242
+      size: 303
+    - path: models/insurance_model.pkl
+      hash: md5
+      md5: ed5b7d0c6387bc1e9353c21c81a9e56a
+      size: 122534
+    - path: models/preprocessor.pkl
+      hash: md5
+      md5: 021842df21f499701ff73be34913c373
+      size: 2666
+    - path: reports/model_report.yaml
+      hash: md5
+      md5: 12435d5ee80bc81da6f9da0b22cb67cf
+      size: 296

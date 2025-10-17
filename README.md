@@ -22,3 +22,11 @@ mlflow ui --backend-store-uri file:///./mlruns --port 5000
  http://localhost:5000 
 
  ````
+
+ ```
+     python test.py → Runs ML pipeline with MLflow tracking only
+
+    dvc repro → Runs ML pipeline with DVC tracking + MLflow tracking
+    dvc repro
+    dvc repro && dvc push
+````

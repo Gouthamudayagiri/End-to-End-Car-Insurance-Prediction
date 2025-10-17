@@ -211,3 +211,11 @@ venv
 env
 .env
 artifact/*
+
+# DVC
+.dvc/
+.dvcignore
+
+# Data files tracked by DVC
+data/raw/insurance.csv.dvc
+artifact.dvc

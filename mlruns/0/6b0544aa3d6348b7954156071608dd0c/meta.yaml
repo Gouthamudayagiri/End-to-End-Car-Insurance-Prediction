@@ -1,0 +1,14 @@
+artifact_uri: file:///C:/Users/ghm/Desktop/Projects/car%20insurance/End-to-End-Car-Insurance-Prediction/mlruns/0/6b0544aa3d6348b7954156071608dd0c/artifacts
+end_time: 1760717479028
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: 6b0544aa3d6348b7954156071608dd0c
+run_name: dvc_pipeline_20251017_214115
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1760717475583
+status: 4
+tags: []
+user_id: ghm

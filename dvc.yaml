@@ -1,0 +1,28 @@
+# dvc.yaml - CORRECTED VERSION
+stages:
+  full_pipeline:
+    cmd: python dvc_pipeline.py --stage full
+    deps:
+      - dvc_pipeline.py
+      - src/insurance_charges/components/data_ingestion.py
+      - src/insurance_charges/components/data_validation.py
+      - src/insurance_charges/components/data_transformation.py
+      - src/insurance_charges/components/model_trainer.py
+      - config/schema.yaml
+    params:
+      - data_ingestion.train_test_split_ratio
+      - model_trainer.expected_accuracy
+    metrics:
+      - metrics/data_ingestion.json
+      - metrics/data_validation.json
+      - metrics/data_transformation.json
+      - metrics/model_training.json
+      - metrics/pipeline_metrics.json
+    outs:
+      - data/processed/train.csv
+      - data/processed/test.csv
+      - models/preprocessor.pkl
+      - data/transformed/train.npy
+      - data/transformed/test.npy
+      - models/insurance_model.pkl
+      - reports/model_report.yaml
