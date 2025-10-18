@@ -219,3 +219,14 @@ artifact/*
 # Data files tracked by DVC
 data/raw/insurance.csv.dvc
 artifact.dvc
+artifact/
+artifacts/
+data/
+*.csv
+*.npy
+*.pkl
+models/  # Models should come from S3, not local
+mlruns/          # MLflow runs (will use remote MLflow)
+.mlflow/
+notebooks/
+reports/

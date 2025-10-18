@@ -1,21 +1,25 @@
 FROM python:3.9-slim
 
-# WORKDIR /app
+WORKDIR /app
 
-# # Copy requirements first for better caching
-# COPY requirements.txt .
-# RUN pip install --no-cache-dir -r requirements.txt
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
 
-# # Copy source code
-# COPY src/ ./src/
-# COPY app.py .
-# COPY config/ ./config/
-# COPY static/ ./static/
-# COPY templates/ ./templates/
+# Copy requirements and install
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# # Install package in development mode
-# RUN pip install -e .
+# Copy application code
+COPY . .
 
-# EXPOSE 8080
+# Create necessary directories
+RUN mkdir -p logs
 
-# CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8080"]
+# Expose port
+EXPOSE 8080
+
+# Start application
+CMD ["python", "app.py"]
