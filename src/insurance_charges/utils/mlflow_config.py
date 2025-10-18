@@ -235,3 +235,18 @@ class MLflowConfig:
             "s3_bucket": self.bucket_name if self.s3_enabled else None,
             "artifact_locations": self.get_artifact_locations()
         }
+    # Add this method to your existing MLflowConfig class
+    def _force_s3_artifact_location(self):
+        """Force S3 artifact location for current run"""
+        try:
+            if self.s3_enabled:
+                # Set S3 artifact location for all new runs
+                experiment = mlflow.get_experiment_by_name(self.experiment_name)
+                if experiment:
+                    # This ensures new runs use S3 for artifacts
+                    mlflow.set_experiment(self.experiment_name)
+                    logging.info(f"🎯 S3 artifact location forced: s3://{self.bucket_name}/mlflow")
+            else:
+                logging.info("💾 Using local artifact storage only")
+        except Exception as e:
+            logging.warning(f"⚠️ Could not force S3 artifact location: {e}")
