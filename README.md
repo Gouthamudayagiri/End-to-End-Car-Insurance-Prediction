@@ -30,3 +30,27 @@ mlflow ui --backend-store-uri file:///./mlruns --port 5000
     dvc repro
     dvc repro && dvc push
 ````
+
+    python test.py - ML pipeline with MLflow only
+
+    dvc repro - Full pipeline with DVC + MLflow tracking
+
+    python app.py - Start web application
+
+
+    # View local experiments
+mlflow ui --backend-store-uri file:///./mlruns --port 5000
+
+# View S3 experiments (if configured)
+mlflow ui --backend-store-uri s3://insurance-charges-model-2025/mlflow --port 5001
+
+ mlflow ui --backend-store-uri file:///./mlruns
+
+ mlflow ui --backend-store-uri file:///./mlruns --port 5000
+
+
+ 💡 View Results:
+MLflow UI: mlflow ui --backend-store-uri file:///./mlruns --port 5000
+DVC Status: python dvc_commands.py status
+DVC Metrics: dvc metrics show
+python dvc_commands.py push

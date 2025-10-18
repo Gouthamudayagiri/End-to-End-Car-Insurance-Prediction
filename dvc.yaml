@@ -1,5 +1,66 @@
-# dvc.yaml - CORRECTED VERSION
+# dvc.yaml - UPDATED FOR DUAL STORAGE
 stages:
+  data_ingestion:
+    cmd: python dvc_pipeline.py --stage data_ingestion
+    deps:
+      - dvc_pipeline.py
+      - src/insurance_charges/components/data_ingestion.py
+      - config/schema.yaml
+    params:
+      - data_ingestion.train_test_split_ratio
+    metrics:
+      - metrics/data_ingestion.json:
+          cache: false
+    outs:
+      - data/processed/train.csv
+      - data/processed/test.csv
+
+  data_validation:
+    cmd: python dvc_pipeline.py --stage data_validation
+    deps:
+      - dvc_pipeline.py
+      - src/insurance_charges/components/data_validation.py
+      - data/processed/train.csv
+      - data/processed/test.csv
+    metrics:
+      - metrics/data_validation.json:
+          cache: false
+    outs:
+      - reports/drift_report.yaml
+
+  data_transformation:
+    cmd: python dvc_pipeline.py --stage data_transformation
+    deps:
+      - dvc_pipeline.py
+      - src/insurance_charges/components/data_transformation.py
+      - data/processed/train.csv
+      - data/processed/test.csv
+      - reports/drift_report.yaml
+    metrics:
+      - metrics/data_transformation.json:
+          cache: false
+    outs:
+      - models/preprocessor.pkl
+      - data/transformed/train.npy
+      - data/transformed/test.npy
+
+  model_training:
+    cmd: python dvc_pipeline.py --stage model_training
+    deps:
+      - dvc_pipeline.py
+      - src/insurance_charges/components/model_trainer.py
+      - models/preprocessor.pkl
+      - data/transformed/train.npy
+      - data/transformed/test.npy
+    params:
+      - model_trainer.expected_accuracy
+    metrics:
+      - metrics/model_training.json:
+          cache: false
+    outs:
+      - models/insurance_model.pkl
+      - reports/model_report.yaml
+
   full_pipeline:
     cmd: python dvc_pipeline.py --stage full
     deps:
@@ -13,11 +74,16 @@ stages:
       - data_ingestion.train_test_split_ratio
       - model_trainer.expected_accuracy
     metrics:
-      - metrics/data_ingestion.json
-      - metrics/data_validation.json
-      - metrics/data_transformation.json
-      - metrics/model_training.json
-      - metrics/pipeline_metrics.json
+      - metrics/data_ingestion.json:
+          cache: false
+      - metrics/data_validation.json:
+          cache: false
+      - metrics/data_transformation.json:
+          cache: false
+      - metrics/model_training.json:
+          cache: false
+      - metrics/pipeline_metrics.json:
+          cache: false
     outs:
       - data/processed/train.csv
       - data/processed/test.csv
@@ -26,3 +92,4 @@ stages:
       - data/transformed/test.npy
       - models/insurance_model.pkl
       - reports/model_report.yaml
+      - reports/drift_report.yaml

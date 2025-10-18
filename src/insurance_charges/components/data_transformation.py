@@ -3,7 +3,7 @@ import sys
 import numpy as np
 import pandas as pd
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler, OneHotEncoder, PowerTransformer
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from typing import Tuple
 from scipy import sparse
@@ -45,41 +45,65 @@ class DataTransformation:
             df_copy = df.copy()
             
             # Create risk score feature (numerical)
-            df_copy['risk_score'] = (df_copy['age'] / 10) * (df_copy['bmi'] / 25) * df_copy["smoker"].map({"yes": 3, "no": 1})
+            smoker_map = {"yes": 3, "no": 1}
+            df_copy['risk_score'] = (df_copy['age'] / 10) * (df_copy['bmi'] / 25) * df_copy["smoker"].map(smoker_map)
             
             # Children flag (numerical)
             df_copy['children_flag'] = df_copy['children'].apply(lambda x: 1 if x > 0 else 0)
             
             # Smoker-BMI interaction (numerical)
-            df_copy['smoker_bmi_interaction'] = df_copy['bmi'] * df_copy["smoker"].map({"yes": 2, "no": 1})
+            df_copy['smoker_bmi_interaction'] = df_copy['bmi'] * df_copy["smoker"].map(smoker_map)
             
             # Age categories (numerical encoding instead of categorical)
+            age_bins = [0, 30, 40, 50, 60, 100]
+            age_labels = [1, 2, 3, 4, 5]
             df_copy['age_category'] = pd.cut(
                 df_copy['age'], 
-                bins=[0, 30, 40, 50, 60, 100],
-                labels=[1, 2, 3, 4, 5]  # Numerical labels instead of strings
+                bins=age_bins,
+                labels=age_labels
             ).astype(int)
             
-            logging.info("Successfully created new numerical features")
+            # BMI categories (numerical)
+            bmi_bins = [0, 18.5, 25, 30, 35, 40, 100]
+            bmi_labels = [1, 2, 3, 4, 5, 6]
+            df_copy['bmi_category'] = pd.cut(
+                df_copy['bmi'],
+                bins=bmi_bins,
+                labels=bmi_labels
+            ).astype(int)
+            
+            logging.info(f"✅ Created new features. DataFrame shape: {df_copy.shape}")
+            logging.info(f"New columns: {[col for col in df_copy.columns if col not in df.columns]}")
+            
             return df_copy
             
         except Exception as e:
+            logging.error(f"Error in feature engineering: {e}")
             raise InsuranceException(e, sys)
 
     def get_data_transformer_object(self, feature_columns: list) -> ColumnTransformer:
         logging.info("Entered get_data_transformer_object method of DataTransformation class")
 
         try:
-            # EXPLICITLY define numerical and categorical columns - don't infer dynamically
-            numerical_columns = ['age', 'bmi', 'children', 'risk_score', 'children_flag', 'smoker_bmi_interaction', 'age_category']
+            # Define numerical and categorical columns explicitly
+            base_numerical = ['age', 'bmi', 'children']
+            engineered_numerical = ['risk_score', 'children_flag', 'smoker_bmi_interaction', 'age_category', 'bmi_category']
             categorical_columns = ['sex', 'smoker', 'region']
             
+            # Combine base and engineered numerical features
+            all_numerical_columns = base_numerical + engineered_numerical
+            
             # Filter to only include columns that actually exist in the data
-            numerical_columns = [col for col in numerical_columns if col in feature_columns]
+            numerical_columns = [col for col in all_numerical_columns if col in feature_columns]
             categorical_columns = [col for col in categorical_columns if col in feature_columns]
             
-            logging.info(f"Final Numerical columns: {numerical_columns}")
-            logging.info(f"Final Categorical columns: {categorical_columns}")
+            logging.info(f"Final Numerical columns ({len(numerical_columns)}): {numerical_columns}")
+            logging.info(f"Final Categorical columns ({len(categorical_columns)}): {categorical_columns}")
+            
+            # Check for missing columns
+            missing_columns = set(feature_columns) - set(numerical_columns + categorical_columns)
+            if missing_columns:
+                logging.warning(f"Columns not processed: {missing_columns}")
 
             # Create transformers
             numeric_transformer = StandardScaler()
@@ -90,14 +114,16 @@ class DataTransformation:
             
             if numerical_columns:
                 transformers.append(("Numerical", numeric_transformer, numerical_columns))
+                logging.info(f"Added numerical transformer for {len(numerical_columns)} columns")
             
             if categorical_columns:
                 transformers.append(("Categorical", categorical_transformer, categorical_columns))
+                logging.info(f"Added categorical transformer for {len(categorical_columns)} columns")
 
             # Create column transformer
             preprocessor = ColumnTransformer(
                 transformers=transformers,
-                remainder='drop',
+                remainder='drop',  # Drop columns not specified
                 n_jobs=-1
             )
 
@@ -107,6 +133,7 @@ class DataTransformation:
             return preprocessor
 
         except Exception as e:
+            logging.error(f"Error creating data transformer: {e}")
             raise InsuranceException(e, sys) from e
 
     def _ensure_dense_array(self, array):
@@ -120,7 +147,8 @@ class DataTransformation:
         """Ensure array has proper dtype for numpy saving"""
         try:
             # Convert to numpy array with proper dtype
-            array = np.array(array, dtype=np.float64)
+            if array.dtype == object:
+                array = np.array(array, dtype=np.float64)
             return array
         except Exception as e:
             logging.warning(f"Could not convert to float64: {e}, using object dtype")
@@ -141,20 +169,16 @@ class DataTransformation:
             train_df = self.read_data(file_path=self.data_ingestion_artifact.trained_file_path)
             test_df = self.read_data(file_path=self.data_ingestion_artifact.test_file_path)
 
-            logging.info(f"Training data shape: {train_df.shape}")
-            logging.info(f"Testing data shape: {test_df.shape}")
+            logging.info(f"Original Training data shape: {train_df.shape}")
+            logging.info(f"Original Testing data shape: {test_df.shape}")
             logging.info(f"Training columns: {list(train_df.columns)}")
 
-            # Store sample data for type inference
-            self._sample_data = train_df.head(10)
-
-            # Feature engineering - only create numerical features
+            # Feature engineering - create new features
             train_df = self._create_features(train_df)
             test_df = self._create_features(test_df)
 
             logging.info(f"After feature engineering - Train shape: {train_df.shape}, Test shape: {test_df.shape}")
             logging.info(f"Train columns after feature engineering: {list(train_df.columns)}")
-            logging.info(f"Train dtypes: {train_df.dtypes}")
 
             # Prepare features and target
             input_feature_train_df = train_df.drop(columns=[TARGET_COLUMN], axis=1)

@@ -79,94 +79,212 @@ class DataValidation:
         Description :   This method validates if drift is detected
         """
         try:
-            # Try to import evidently, but provide fallback if not available
+            # Check if evidently is available
+            evidently_available = False
             try:
                 from evidently.report import Report
-                from evidently.metrics import DatasetDriftMetric, ColumnDriftMetric
+                from evidently.metrics import DatasetDriftMetric
                 evidently_available = True
+                logging.info("✅ Evidently available for drift detection")
             except ImportError:
-                logging.warning("Evidently not available. Skipping drift detection.")
+                logging.warning("⚠️ Evidently not available. Using basic statistical drift detection.")
                 evidently_available = False
-                return False
             
             if evidently_available:
-                metrics_list = [DatasetDriftMetric()]
-                
-                # Add column drift metrics for each column
-                for column_name in reference_df.columns:
-                    metrics_list.append(ColumnDriftMetric(column_name=column_name))
-                
-                data_drift_report = Report(metrics=metrics_list)
-                
-                data_drift_report.run(reference_data=reference_df, current_data=current_df)
-                
-                report_result = data_drift_report.as_dict()
-                
-                dataset_drift = False
-                n_features = 0
-                n_drifted_features = 0
-                
-                # Extract drift information from the report
-                if 'metrics' in report_result:
-                    for metric in report_result['metrics']:
-                        if metric['metric'] == 'DatasetDriftMetric':
-                            dataset_drift = metric['result']['dataset_drift']
-                            n_drifted_features = metric['result']['number_of_drifted_columns']
-                            n_features = metric['result']['number_of_columns']
-                            break
-                
-                try:
-                    report_dict = {
-                        'drift_detected': dataset_drift,
-                        'number_of_columns': n_features,
-                        'number_of_drifted_columns': n_drifted_features,
-                        'metric_details': report_result
-                    }
-                    write_yaml_file(file_path=self.data_validation_config.drift_report_file_path, content=report_dict)
-                except Exception as save_error:
-                    logging.info(f"Could not save drift report to file: {save_error}")
-                
-                logging.info(f"Dataset drift detection completed: {n_drifted_features}/{n_features} features drifted.")
-                
-                return dataset_drift
+                return self._detect_drift_with_evidently(reference_df, current_df)
             else:
-                # Fallback: basic statistical comparison
-                logging.info("Using basic statistical comparison for drift detection")
-                drift_detected = self._basic_statistical_drift(reference_df, current_df)
-                report_dict = {
-                    'drift_detected': drift_detected,
-                    'method': 'basic_statistical',
-                    'message': 'Evidently not available, used basic statistical comparison'
-                }
-                write_yaml_file(file_path=self.data_validation_config.drift_report_file_path, content=report_dict)
-                return drift_detected
+                return self._basic_statistical_drift(reference_df, current_df)
                 
         except Exception as e:
-            logging.warning(f"Drift detection failed: {e}. Continuing without drift detection.")
-            return False
+            logging.error(f"❌ Drift detection failed: {e}")
+            # Fallback to basic method
+            return self._basic_statistical_drift(reference_df, current_df)
+
+    def _detect_drift_with_evidently(self, reference_df: DataFrame, current_df: DataFrame) -> bool:
+        """
+        Detect drift using Evidently AI
+        """
+        try:
+            from evidently.report import Report
+            from evidently.metrics import DatasetDriftMetric
+            
+            logging.info("🔍 Running Evidently drift detection...")
+            
+            # Ensure data types match schema
+            reference_df = self._ensure_correct_data_types(reference_df)
+            current_df = self._ensure_correct_data_types(current_df)
+            
+            # Create and run drift report
+            drift_report = Report(metrics=[DatasetDriftMetric()])
+            drift_report.run(reference_data=reference_df, current_data=current_df)
+            
+            # Get results
+            report_result = drift_report.as_dict()
+            
+            # Extract drift information
+            drift_detected = False
+            n_features = 0
+            n_drifted_features = 0
+            
+            if 'metrics' in report_result:
+                for metric in report_result['metrics']:
+                    if metric['metric'] == 'DatasetDriftMetric':
+                        drift_detected = metric['result']['dataset_drift']
+                        n_drifted_features = metric['result']['number_of_drifted_columns']
+                        n_features = metric['result']['number_of_columns']
+                        break
+            
+            # Save detailed drift report
+            drift_details = {
+                'drift_detected': drift_detected,
+                'number_of_columns': n_features,
+                'number_of_drifted_columns': n_drifted_features,
+                'drift_ratio': n_drifted_features / n_features if n_features > 0 else 0,
+                'timestamp': pd.Timestamp.now().isoformat(),
+                'method': 'evidently'
+            }
+            
+            # Save column-level drift details
+            column_drifts = []
+            for metric in report_result.get('metrics', []):
+                if 'column_name' in metric.get('result', {}):
+                    column_drifts.append({
+                        'column': metric['result']['column_name'],
+                        'drift_detected': metric['result'].get('drift_detected', False),
+                        'drift_score': metric['result'].get('drift_score', 0)
+                    })
+            
+            drift_details['column_drifts'] = column_drifts
+            
+            # Save report
+            write_yaml_file(
+                file_path=self.data_validation_config.drift_report_file_path, 
+                content=drift_details
+            )
+            
+            logging.info(f"📊 Drift detection completed: {n_drifted_features}/{n_features} features drifted")
+            logging.info(f"🎯 Dataset drift detected: {drift_detected}")
+            
+            return drift_detected
+            
+        except Exception as e:
+            logging.error(f"❌ Evidently drift detection failed: {e}")
+            raise InsuranceException(e, sys)
+
+    def _ensure_correct_data_types(self, df: DataFrame) -> DataFrame:
+        """
+        Ensure DataFrame has correct data types according to schema
+        """
+        try:
+            df_copy = df.copy()
+            
+            # Convert numerical columns
+            for col in self._schema_config.get("numerical_columns", []):
+                if col in df_copy.columns:
+                    df_copy[col] = pd.to_numeric(df_copy[col], errors='coerce')
+            
+            # Convert categorical columns  
+            for col in self._schema_config.get("categorical_columns", []):
+                if col in df_copy.columns:
+                    df_copy[col] = df_copy[col].astype('category')
+            
+            return df_copy
+            
+        except Exception as e:
+            logging.warning(f"Could not enforce data types: {e}")
+            return df
 
     def _basic_statistical_drift(self, reference_df: DataFrame, current_df: DataFrame) -> bool:
         """
         Basic statistical drift detection as fallback
         """
         try:
-            # Simple approach: compare means of numerical columns
+            logging.info("📊 Using basic statistical drift detection")
+            
             numerical_cols = reference_df.select_dtypes(include=['number']).columns
+            categorical_cols = reference_df.select_dtypes(include=['object', 'category']).columns
             
             drift_detected = False
-            for col in numerical_cols:
-                ref_mean = reference_df[col].mean()
-                curr_mean = current_df[col].mean()
-                mean_diff = abs(ref_mean - curr_mean) / ref_mean if ref_mean != 0 else abs(ref_mean - curr_mean)
-                
-                # If mean difference is more than 20%, consider it drift
-                if mean_diff > 0.2:
-                    logging.info(f"Potential drift detected in {col}: mean difference {mean_diff:.2%}")
-                    drift_detected = True
+            drift_details = {
+                'numerical_drifts': {},
+                'categorical_drifts': {},
+                'method': 'basic_statistical'
+            }
             
+            # Check numerical columns (mean difference > 20%)
+            for col in numerical_cols:
+                if col in reference_df.columns and col in current_df.columns:
+                    ref_mean = reference_df[col].mean()
+                    curr_mean = current_df[col].mean()
+                    
+                    if ref_mean != 0:
+                        mean_diff = abs(ref_mean - curr_mean) / ref_mean
+                    else:
+                        mean_diff = abs(ref_mean - curr_mean)
+                    
+                    drift_detected_col = mean_diff > 0.2  # 20% threshold
+                    drift_details['numerical_drifts'][col] = {
+                        'mean_difference': float(mean_diff),
+                        'drift_detected': drift_detected_col,
+                        'reference_mean': float(ref_mean),
+                        'current_mean': float(curr_mean)
+                    }
+                    
+                    if drift_detected_col:
+                        drift_detected = True
+                        logging.info(f"⚠️ Potential drift in {col}: mean difference {mean_diff:.2%}")
+            
+            # Check categorical columns (distribution difference)
+            for col in categorical_cols:
+                if col in reference_df.columns and col in current_df.columns:
+                    ref_dist = reference_df[col].value_counts(normalize=True)
+                    curr_dist = current_df[col].value_counts(normalize=True)
+                    
+                    # Align distributions
+                    all_categories = set(ref_dist.index) | set(curr_dist.index)
+                    ref_aligned = ref_dist.reindex(all_categories, fill_value=0)
+                    curr_aligned = curr_dist.reindex(all_categories, fill_value=0)
+                    
+                    # Calculate total variation distance
+                    tv_distance = 0.5 * sum(abs(ref_aligned - curr_aligned))
+                    drift_detected_col = tv_distance > 0.1  # 10% threshold
+                    
+                    drift_details['categorical_drifts'][col] = {
+                        'tv_distance': float(tv_distance),
+                        'drift_detected': drift_detected_col,
+                        'reference_distribution': ref_dist.to_dict(),
+                        'current_distribution': curr_dist.to_dict()
+                    }
+                    
+                    if drift_detected_col:
+                        drift_detected = True
+                        logging.info(f"⚠️ Potential drift in {col}: TV distance {tv_distance:.2%}")
+            
+            # Save basic drift report
+            drift_details['drift_detected'] = drift_detected
+            drift_details['timestamp'] = pd.Timestamp.now().isoformat()
+            
+            write_yaml_file(
+                file_path=self.data_validation_config.drift_report_file_path, 
+                content=drift_details
+            )
+            
+            logging.info(f"📊 Basic drift detection completed: {drift_detected}")
             return drift_detected
+            
         except Exception as e:
-            logging.warning(f"Basic statistical drift detection failed: {e}")
+            logging.error(f"❌ Basic statistical drift detection failed: {e}")
+            # Save error report
+            error_report = {
+                'drift_detected': False,
+                'error': str(e),
+                'method': 'failed',
+                'timestamp': pd.Timestamp.now().isoformat()
+            }
+            write_yaml_file(
+                file_path=self.data_validation_config.drift_report_file_path, 
+                content=error_report
+            )
             return False
 
     def initiate_data_validation(self) -> DataValidationArtifact:
@@ -219,10 +337,10 @@ class DataValidation:
                 drift_status = self.detect_dataset_drift(train_df, test_df)
                 validation_results['drift_detected'] = drift_status
                 if drift_status:
-                    logging.info(f"Drift detected.")
-                    validation_error_msg = "Drift detected"
+                    logging.info(f"⚠️ Drift detected between train and test datasets.")
+                    validation_error_msg = "Data drift detected between train and test sets"
                 else:
-                    validation_error_msg = "Drift not detected"
+                    validation_error_msg = "No data drift detected"
             else:
                 logging.info(f"Validation_error: {validation_error_msg}")
 
