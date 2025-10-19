@@ -107,13 +107,39 @@ DVC Versioning → S3 Storage → GitHub Actions CI/CD
 # Connect to MLflow EC2
 ssh -i your-key.pem ubuntu@mlflow-ec2-ip
 
-# Install dependencies
-sudo apt update -y
-sudo apt install python3-pip -y
-pip3 install mlflow boto3 awscli
+sudo apt update
 
-# Configure AWS
+sudo apt install python3-pip
+
+sudo apt install pipenv
+
+sudo apt install virtualenv
+
+mkdir mlflow
+
+cd mlflow
+
+pipenv install mlflow
+
+pipenv install awscli
+
+pipenv install boto3
+
+pipenv shell
+
+
+## Then set aws credentials
 aws configure
+
+
+#Finally 
+mlflow server -h 0.0.0.0 --default-artifact-root s3://mlflow-test-23
+
+#open Public IPv4 DNS to the port 5000
+
+
+#set uri in your local terminal and in your code 
+export MLFLOW_TRACKING_URI=http://ec2-54-147-36-34.compute-1.amazonaws.com:5000/
 
 # Start MLflow server
 mlflow server \
@@ -154,15 +180,68 @@ aws ecr create-repository --repository-name insurance-predictor --region us-east
 
 #### Step 5: Install Docker on Application EC2
 ```bash
-# Connect to Application EC2
-ssh -i your-key.pem ubuntu@app-ec2-ip
+### AWS-CICD-Deployment-with-Github-Actions
 
-# Install Docker
-sudo apt update -y
+#### 1. Login to AWS console.
+###  2. Create IAM user for deployment
+```
+with specific access
+
+1. EC2 access : It is virtual machine
+
+2. ECR: Elastic Container registry to save your docker image in aws
+
+
+Description: About the deployment
+
+1. Build docker image of the source code
+
+2. Push your docker image to ECR
+
+3. Launch Your EC2 
+
+4. Pull Your image from ECR in EC2
+
+5. Lauch your docker image in EC2
+
+Policy:
+
+1. AmazonEC2ContainerRegistryFullAccess
+
+2. AmazonEC2FullAccess
+
+```
+
+#### 3. Create ECR repo to store/save docker image
+```
+- Save the URI: 136566696263.dkr.ecr.us-east-1.amazonaws.com/mlproject
+```
+
+#### 4. Create EC2 machine (Ubuntu)
+
+#### 5. Open EC2 and Install docker in EC2 Machine:
+```
+#optinal
+
+sudo apt-get update -y
+
+sudo apt-get upgrade
+
+#required
+
 curl -fsSL https://get.docker.com -o get-docker.sh
+
 sudo sh get-docker.sh
+
 sudo usermod -aG docker ubuntu
+
 newgrp docker
+```
+#### 6. Configure EC2 as self-hosted runner:
+```
+setting>actions>runner>new self hosted runner> choose os> then run command one by one
+```
+### 7. Setup github secrets:
 ```
 
 #### Step 6: Configure GitHub Self-Hosted Runner
